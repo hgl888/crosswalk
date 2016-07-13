@@ -5,10 +5,11 @@
 #ifndef XWALK_RUNTIME_BROWSER_XWALK_CONTENT_SETTINGS_H_
 #define XWALK_RUNTIME_BROWSER_XWALK_CONTENT_SETTINGS_H_
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
+
 #include "base/memory/singleton.h"
-#include "base/prefs/pref_service.h"
-#include "base/prefs/json_pref_store.h"
+#include "components/prefs/pref_service.h"
+#include "components/prefs/json_pref_store.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 
 namespace xwalk {
@@ -38,7 +39,7 @@ class XWalkContentSettings {
 
   base::FilePath GetPrefFilePathFromPath(const base::FilePath& path);
 
-  scoped_ptr<PrefService> pref_service_;
+  std::unique_ptr<PrefService> pref_service_;
   scoped_refptr<user_prefs::PrefRegistrySyncable> pref_registry_;
   scoped_refptr<JsonPrefStore> pref_store_;
   scoped_refptr<base::SequencedTaskRunner> sequenced_task_runner_;

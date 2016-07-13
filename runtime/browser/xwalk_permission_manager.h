@@ -6,6 +6,7 @@
 #ifndef XWALK_RUNTIME_BROWSER_XWALK_PERMISSION_MANAGER_H_
 #define XWALK_RUNTIME_BROWSER_XWALK_PERMISSION_MANAGER_H_
 
+#include <string>
 #include <vector>
 
 #include "base/callback_forward.h"
@@ -33,20 +34,20 @@ class XWalkPermissionManager : public content::PermissionManager {
       content::PermissionType permission,
       content::RenderFrameHost* render_frame_host,
       const GURL& requesting_origin,
-      bool user_gesture,
-      const base::Callback<void(content::PermissionStatus)>& callback) override;
+      const base::Callback<void(blink::mojom::PermissionStatus)>& callback)
+      override;
   int RequestPermissions(
       const std::vector<content::PermissionType>& permissions,
       content::RenderFrameHost* render_frame_host,
       const GURL& requesting_origin,
-      bool user_gesture,
       const base::Callback<void(
-          const std::vector<content::PermissionStatus>&)>& callback) override;
+          const std::vector<blink::mojom::PermissionStatus>&)>& callback)
+          override;
   void CancelPermissionRequest(int request_id) override;
   void ResetPermission(content::PermissionType permission,
                        const GURL& requesting_origin,
                        const GURL& embedding_origin) override;
-  content::PermissionStatus GetPermissionStatus(
+  blink::mojom::PermissionStatus GetPermissionStatus(
       content::PermissionType permission,
       const GURL& requesting_origin,
       const GURL& embedding_origin) override;
@@ -57,7 +58,8 @@ class XWalkPermissionManager : public content::PermissionManager {
       content::PermissionType permission,
       const GURL& requesting_origin,
       const GURL& embedding_origin,
-      const base::Callback<void(content::PermissionStatus)>& callback) override;
+      const base::Callback<void(blink::mojom::PermissionStatus)>& callback)
+      override;
   void UnsubscribePermissionStatusChange(int subscription_id) override;
 
  private:
@@ -70,7 +72,7 @@ class XWalkPermissionManager : public content::PermissionManager {
   static void OnRequestResponse(
       const base::WeakPtr<XWalkPermissionManager>& manager,
       int request_id,
-      const base::Callback<void(content::PermissionStatus)>& callback,
+      const base::Callback<void(blink::mojom::PermissionStatus)>& callback,
       bool allowed);
 
   PendingRequestsMap pending_requests_;

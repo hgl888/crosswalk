@@ -11,6 +11,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
+#include "base/threading/worker_pool.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/common/file_chooser_params.h"
@@ -124,7 +125,7 @@ class RuntimeFileSelectHelper
   //   http://whatwg.org/html/number-state.html#attr-input-accept
   // |accept_types| contains only valid lowercased MIME types or file extensions
   // beginning with a period (.).
-  static scoped_ptr<ui::SelectFileDialog::FileTypeInfo>
+  static std::unique_ptr<ui::SelectFileDialog::FileTypeInfo>
       GetFileTypesFromAcceptType(
         const std::vector<base::string16>& accept_types);
 
@@ -139,7 +140,7 @@ class RuntimeFileSelectHelper
 
   // Dialog box used for choosing files to upload from file form fields.
   scoped_refptr<ui::SelectFileDialog> select_file_dialog_;
-  scoped_ptr<ui::SelectFileDialog::FileTypeInfo> select_file_types_;
+  std::unique_ptr<ui::SelectFileDialog::FileTypeInfo> select_file_types_;
 
   // The type of file dialog last shown.
   ui::SelectFileDialog::Type dialog_type_;

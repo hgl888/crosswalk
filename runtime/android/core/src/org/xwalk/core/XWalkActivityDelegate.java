@@ -20,6 +20,7 @@ public class XWalkActivityDelegate
             implements DecompressListener, ActivateListener {
     private static final String TAG = "XWalkActivity";
     private static final String META_XWALK_ENABLE_DOWNLOAD_MODE = "xwalk_enable_download_mode";
+    private static final String META_XWALK_DOWNLOAD_MODE = "xwalk_download_mode";
 
     private Activity mActivity;
     private XWalkDialogManager mDialogManager;
@@ -32,53 +33,23 @@ public class XWalkActivityDelegate
     private boolean mBackgroundDecorated;
     private boolean mWillDecompress;
     private final boolean mIsDownloadMode;
+    private String mXWalkApkUrl;
 
     public XWalkActivityDelegate(Activity activity,
             Runnable cancelCommand, Runnable completeCommand) {
         mActivity = activity;
         mCancelCommand = cancelCommand;
         mCompleteCommand = completeCommand;
-        mIsDownloadMode = isDownloadModeEnabled();
 
-        if (mIsDownloadMode) {
-            mXWalkUpdater = new XWalkUpdater(
-                new XWalkBackgroundUpdateListener() {
-                    @Override
-                    public void onXWalkUpdateStarted() {
-                    }
-
-                    @Override
-                    public void onXWalkUpdateProgress(int percentage) {
-                    }
-
-                    @Override
-                    public void onXWalkUpdateCancelled() {
-                        mCancelCommand.run();
-                    }
-
-                    @Override
-                    public void onXWalkUpdateFailed() {
-                        mCancelCommand.run();
-                    }
-
-                    @Override
-                    public void onXWalkUpdateCompleted() {
-                        XWalkLibraryLoader.startActivate(XWalkActivityDelegate.this, mActivity);
-                    }
-                },
-                mActivity);
-        } else {
-            mDialogManager = new XWalkDialogManager(mActivity);
-            mXWalkUpdater = new XWalkUpdater(
-                new XWalkUpdateListener() {
-                    @Override
-                    public void onXWalkUpdateCancelled() {
-                        mCancelCommand.run();
-                    }
-                },
-                mActivity,
-                mDialogManager);
+        String enable = getApplicationMetaData(META_XWALK_DOWNLOAD_MODE);
+        if (enable == null) {
+            enable = getApplicationMetaData(META_XWALK_ENABLE_DOWNLOAD_MODE);
         }
+        mIsDownloadMode = enable != null
+                && (enable.equalsIgnoreCase("enable") || enable.equalsIgnoreCase("true"));
+
+        mDialogManager = new XWalkDialogManager(mActivity);
+
         XWalkLibraryLoader.prepareToInit(mActivity);
     }
 
@@ -95,7 +66,11 @@ public class XWalkActivityDelegate
     }
 
     public void setXWalkApkUrl(String url) {
-        mXWalkUpdater.setXWalkApkUrl(url);
+        mXWalkApkUrl = url;
+    }
+
+    public XWalkDialogManager getDialogManager() {
+        return mDialogManager;
     }
 
     public void onResume() {
@@ -125,9 +100,7 @@ public class XWalkActivityDelegate
 
     @Override
     public void onDecompressCancelled() {
-        mDialogManager.dismissDialog();
         mWillDecompress = false;
-
         mIsInitializing = false;
         mCancelCommand.run();
     }
@@ -149,6 +122,50 @@ public class XWalkActivityDelegate
     @Override
     public void onActivateFailed() {
         mIsInitializing = false;
+
+        if (mXWalkUpdater == null) {
+            if (mIsDownloadMode) {
+                mXWalkUpdater = new XWalkUpdater(
+                    new XWalkBackgroundUpdateListener() {
+                        @Override
+                        public void onXWalkUpdateStarted() {
+                        }
+
+                        @Override
+                        public void onXWalkUpdateProgress(int percentage) {
+                        }
+
+                        @Override
+                        public void onXWalkUpdateCancelled() {
+                            mCancelCommand.run();
+                        }
+
+                        @Override
+                        public void onXWalkUpdateFailed() {
+                            mCancelCommand.run();
+                        }
+
+                        @Override
+                        public void onXWalkUpdateCompleted() {
+                            XWalkLibraryLoader.startActivate(XWalkActivityDelegate.this, mActivity);
+                        }
+                    },
+                    mActivity);
+            } else {
+                mXWalkUpdater = new XWalkUpdater(
+                    new XWalkUpdateListener() {
+                        @Override
+                        public void onXWalkUpdateCancelled() {
+                            mCancelCommand.run();
+                        }
+                    },
+                    mActivity, mDialogManager);
+            }
+
+            if (mXWalkApkUrl != null) {
+                mXWalkUpdater.setXWalkApkUrl(mXWalkApkUrl);
+            }
+        }
 
         if (mXWalkUpdater.updateXWalkRuntime() && !mIsDownloadMode) {
             // Set the background to screen_background_dark temporarily if the default background
@@ -179,14 +196,14 @@ public class XWalkActivityDelegate
         mCompleteCommand.run();
     }
 
-    private boolean isDownloadModeEnabled() {
+    private String getApplicationMetaData(String name) {
         try {
-            ApplicationInfo appInfo = mActivity.getPackageManager().getApplicationInfo(
+            PackageManager packageManager = mActivity.getPackageManager();
+            ApplicationInfo appInfo = packageManager.getApplicationInfo(
                     mActivity.getPackageName(), PackageManager.GET_META_DATA);
-            String enableStr = appInfo.metaData.getString(META_XWALK_ENABLE_DOWNLOAD_MODE);
-            return enableStr.equalsIgnoreCase("enable");
+            return appInfo.metaData.getString(name);
         } catch (NameNotFoundException | NullPointerException e) {
         }
-        return false;
+        return null;
     }
 }

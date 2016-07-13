@@ -10,13 +10,13 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/android/jni_weak_ref.h"
+#include "base/memory/ptr_util.h"
 #include "base/strings/string_util.h"
 #include "content/public/common/url_constants.h"
 #include "jni/AndroidProtocolHandler_jni.h"
 #include "net/base/io_buffer.h"
 #include "net/base/mime_util.h"
 #include "net/base/net_errors.h"
-#include "net/base/net_util.h"
 #include "net/http/http_util.h"
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_intercepting_job_factory.h"
@@ -65,7 +65,7 @@ class AndroidStreamReaderURLRequestJobDelegateImpl
  public:
   AndroidStreamReaderURLRequestJobDelegateImpl();
 
-  scoped_ptr<InputStream> OpenInputStream(
+  std::unique_ptr<InputStream> OpenInputStream(
       JNIEnv* env,
       const GURL& url) override;
 
@@ -151,7 +151,7 @@ AndroidStreamReaderURLRequestJobDelegateImpl::
 ~AndroidStreamReaderURLRequestJobDelegateImpl() {
 }
 
-scoped_ptr<InputStream>
+std::unique_ptr<InputStream>
 AndroidStreamReaderURLRequestJobDelegateImpl::OpenInputStream(
     JNIEnv* env, const GURL& url) {
   DCHECK(url.is_valid());
@@ -169,9 +169,9 @@ AndroidStreamReaderURLRequestJobDelegateImpl::OpenInputStream(
   // Check and clear pending exceptions.
   if (ClearException(env) || stream.is_null()) {
     DLOG(ERROR) << "Unable to open input stream for Android URL";
-    return scoped_ptr<InputStream>();
+    return std::unique_ptr<InputStream>();
   }
-  return make_scoped_ptr<InputStream>(new InputStreamImpl(stream));
+  return base::WrapUnique(new InputStreamImpl(stream));
 }
 
 void AndroidStreamReaderURLRequestJobDelegateImpl::OnInputStreamOpenFailed(
@@ -260,7 +260,7 @@ net::URLRequestJob* AndroidRequestInterceptorBase::MaybeInterceptRequest(
   if (HasRequestPreviouslyFailed(request))
     return NULL;
 
-  scoped_ptr<AndroidStreamReaderURLRequestJobDelegateImpl> reader_delegate(
+  std::unique_ptr<AndroidStreamReaderURLRequestJobDelegateImpl> reader_delegate(
       new AndroidStreamReaderURLRequestJobDelegateImpl());
 
   xwalk::XWalkBrowserContext* browser_context =
@@ -329,22 +329,20 @@ bool RegisterAndroidProtocolHandler(JNIEnv* env) {
 }
 
 // static
-scoped_ptr<net::URLRequestInterceptor>
+std::unique_ptr<net::URLRequestInterceptor>
 CreateContentSchemeRequestInterceptor() {
-  return make_scoped_ptr<net::URLRequestInterceptor>(
-      new ContentSchemeRequestInterceptor());
+  return base::WrapUnique(new ContentSchemeRequestInterceptor());
 }
 
 // static
-scoped_ptr<net::URLRequestInterceptor> CreateAssetFileRequestInterceptor() {
-  return scoped_ptr<net::URLRequestInterceptor>(
+std::unique_ptr<net::URLRequestInterceptor> CreateAssetFileRequestInterceptor() {
+  return std::unique_ptr<net::URLRequestInterceptor>(
       new AssetFileRequestInterceptor());
 }
 
 // static
-scoped_ptr<net::URLRequestInterceptor> CreateAppSchemeRequestInterceptor() {
-  return make_scoped_ptr<net::URLRequestInterceptor>(
-      new AppSchemeRequestInterceptor());
+std::unique_ptr<net::URLRequestInterceptor> CreateAppSchemeRequestInterceptor() {
+  return base::WrapUnique(new AppSchemeRequestInterceptor());
 }
 
 

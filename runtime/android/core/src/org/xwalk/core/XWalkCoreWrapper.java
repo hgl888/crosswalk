@@ -38,12 +38,11 @@ class XWalkCoreWrapper {
     private static final String WRAPPER_PACKAGE = "org.xwalk.core";
     private static final String BRIDGE_PACKAGE = "org.xwalk.core.internal";
     private static final String TAG = "XWalkLib";
-    private static final String XWALK_CORE_EXTRACTED_DIR = "extracted_xwalkcore";
     private static final String XWALK_CORE_CLASSES_DEX = "classes.dex";
     private static final String OPTIMIZED_DEX_DIR = "dex";
     private static final String META_XWALK_ENABLE_DOWNLOAD_MODE = "xwalk_enable_download_mode";
-    private static final String XWALK_PREF_FILE = "xwalk_pref";
-    private static final String XWALK_PREF_BUILD_VERSION = "xwalk_build_version";
+    private static final String META_XWALK_DOWNLOAD_MODE = "xwalk_download_mode";
+    private static final String META_XWALK_DOWNLOAD_MODE_UPDATE = "xwalk_download_mode_update";
     private static final String PATTERN_BIT_MISMATCH =
             "dlopen failed: \".+\" is (32|64)-bit instead of (32|64)-bit";
 
@@ -79,6 +78,7 @@ class XWalkCoreWrapper {
     private int mApiVersion;
     private int mMinApiVersion;
     private int mCoreStatus;
+    private boolean mIsDownloadMode;
 
     private Context mWrapperContext;
     private Context mBridgeContext;
@@ -186,12 +186,7 @@ class XWalkCoreWrapper {
             return sProvisionalInstance.mCoreStatus;
         }
 
-        if (sProvisionalInstance.isDownloadMode()) {
-            if (XWalkUpdater.getAutoUpdate() &&
-                    !sProvisionalInstance.checkXWalkRuntimeBuildVersion()) {
-                return sProvisionalInstance.mCoreStatus;
-            }
-
+        if (sProvisionalInstance.mIsDownloadMode) {
             sProvisionalInstance.findDownloadedCore();
             return sProvisionalInstance.mCoreStatus;
         }
@@ -204,16 +199,14 @@ class XWalkCoreWrapper {
             return sProvisionalInstance.mCoreStatus;
         }
 
-        String cpuAbi = getPrimaryCpuAbi();
-        if (cpuAbi.equalsIgnoreCase("arm64-v8a")) {
+        String deviceAbi = getDeviceAbi();
+        if (deviceAbi.equals("arm64-v8a")) {
             sProvisionalInstance.findSharedCore(XWalkLibraryInterface.XWALK_CORE64_PACKAGE);
-        } else if (cpuAbi.equalsIgnoreCase("x86")) {
+        } else if (deviceAbi.equals("x86")) {
             sProvisionalInstance.findSharedCore(XWalkLibraryInterface.XWALK_CORE_IA_PACKAGE);
-        } else if (cpuAbi.equalsIgnoreCase("x86_64")) {
+        } else if (deviceAbi.equals("x86_64")) {
             if (!sProvisionalInstance.findSharedCore(XWalkLibraryInterface.XWALK_CORE64_PACKAGE)) {
-                if (!sProvisionalInstance.findSharedCore(XWalkLibraryInterface.XWALK_CORE_IA_PACKAGE)) {
-                    sProvisionalInstance.findSharedCore(XWalkLibraryInterface.XWALK_CORE64_IA_PACKAGE);
-                }
+                sProvisionalInstance.findSharedCore(XWalkLibraryInterface.XWALK_CORE64_IA_PACKAGE);
             }
         }
         return sProvisionalInstance.mCoreStatus;
@@ -242,7 +235,8 @@ class XWalkCoreWrapper {
         Log.d(TAG, "Init embedded mode");
         XWalkCoreWrapper provisionalInstance = new XWalkCoreWrapper(null, -1);
         if (!provisionalInstance.findEmbeddedCore()) {
-            Assert.fail("Please have your activity extend XWalkActivity for shared mode");
+            throw new RuntimeException(
+                    "Please have your activity extend XWalkActivity for shared mode");
         }
 
         sInstance = provisionalInstance;
@@ -255,6 +249,13 @@ class XWalkCoreWrapper {
                 minApiVersion : mApiVersion;
         mCoreStatus = XWalkLibraryInterface.STATUS_PENDING;
         mWrapperContext = context;
+
+        String enable = getApplicationMetaData(META_XWALK_DOWNLOAD_MODE);
+        if (enable == null) {
+            enable = getApplicationMetaData(META_XWALK_ENABLE_DOWNLOAD_MODE);
+        }
+        mIsDownloadMode = enable != null
+                && (enable.equalsIgnoreCase("enable") || enable.equalsIgnoreCase("true"));
     }
 
     private void initCoreBridge() {
@@ -301,8 +302,8 @@ class XWalkCoreWrapper {
     }
 
     private boolean findDownloadedCore() {
-        String libDir = mWrapperContext.getDir(XWALK_CORE_EXTRACTED_DIR, Context.MODE_PRIVATE).
-                getAbsolutePath();
+        String libDir = mWrapperContext.getDir(XWalkLibraryInterface.XWALK_CORE_EXTRACTED_DIR,
+                Context.MODE_PRIVATE).getAbsolutePath();
         String dexPath = libDir + File.separator + XWALK_CORE_CLASSES_DEX;
         String dexOutputPath = mWrapperContext.getDir(OPTIMIZED_DEX_DIR, Context.MODE_PRIVATE).
                 getAbsolutePath();
@@ -314,62 +315,9 @@ class XWalkCoreWrapper {
             return false;
         }
 
-        // store the current XWALK_BUILD_VERSION for auto-update detection.
-        setXWalkRuntimeBuildVersion();
-
         Log.d(TAG, "Running in downloaded mode");
         mCoreStatus = XWalkLibraryInterface.STATUS_MATCH;
         return true;
-    }
-
-    private boolean isDownloadMode() {
-        try {
-            PackageManager packageManager = mWrapperContext.getPackageManager();
-            ApplicationInfo appInfo = packageManager.getApplicationInfo(
-                    mWrapperContext.getPackageName(), PackageManager.GET_META_DATA);
-            String enableStr = appInfo.metaData.getString(META_XWALK_ENABLE_DOWNLOAD_MODE);
-            return enableStr.equalsIgnoreCase("enable");
-        } catch (NameNotFoundException | NullPointerException e) {
-        }
-        return false;
-    }
-
-    private static void storeXWalkRuntimeBuildVersion(Context context, String version) {
-        SharedPreferences sp = context.getSharedPreferences(XWALK_PREF_FILE, Context.MODE_PRIVATE);
-        sp.edit().putString(XWALK_PREF_BUILD_VERSION, version).apply();
-    }
-
-    private void setXWalkRuntimeBuildVersion() {
-        String xwalkBuildVersion = "";
-        try {
-            Class<?> clazz = getBridgeClass("XWalkCoreVersion");
-            xwalkBuildVersion = (String) new ReflectField(clazz, "XWALK_BUILD_VERSION").get();
-        } catch (RuntimeException e) {
-        }
-        storeXWalkRuntimeBuildVersion(mWrapperContext, xwalkBuildVersion);
-    }
-
-    private String getXWalkRuntimeBuildVersion() {
-        SharedPreferences sp = mWrapperContext.getSharedPreferences(XWALK_PREF_FILE,
-                Context.MODE_PRIVATE);
-        return sp.getString(XWALK_PREF_BUILD_VERSION, "");
-    }
-
-    public static void resetXWalkRuntimeBuildVersion(Context context) {
-        storeXWalkRuntimeBuildVersion(context, "");
-    }
-
-    private boolean checkXWalkRuntimeBuildVersion() {
-        String currentVersion = getXWalkRuntimeBuildVersion();
-        Log.d(TAG, "Api build version:" + XWalkAppVersion.XWALK_BUILD_VERSION +
-                ", Runtime build version:" + currentVersion);
-        if (currentVersion.isEmpty() ||
-                currentVersion.equals(XWalkAppVersion.XWALK_BUILD_VERSION)) {
-            return true;
-        }
-        Log.d(TAG, "App doesn't match the downloaded runtime");
-        mCoreStatus = XWalkLibraryInterface.STATUS_RUNTIME_MISMATCH;
-        return false;
     }
 
     private boolean checkCoreVersion() {
@@ -387,6 +335,16 @@ class XWalkCoreWrapper {
             int minLibVersion = (int) new ReflectField(clazz, "MIN_API_VERSION").get();
             Log.d(TAG, "[Lib Version] build:" + buildVersion
                     + ", api:" + libVersion + ", min_api:" + minLibVersion);
+
+            if (mIsDownloadMode && !buildVersion.isEmpty()) {
+                String update = getApplicationMetaData(META_XWALK_DOWNLOAD_MODE_UPDATE);
+                if (update != null
+                        && (update.equalsIgnoreCase("enable") || update.equalsIgnoreCase("true"))
+                        && !buildVersion.equals(XWalkAppVersion.XWALK_BUILD_VERSION)) {
+                    mCoreStatus = XWalkLibraryInterface.STATUS_RUNTIME_MISMATCH;
+                    return false;
+                }
+            }
 
             if (mMinApiVersion > libVersion) {
                 mCoreStatus = XWalkLibraryInterface.STATUS_OLDER_VERSION;
@@ -496,12 +454,12 @@ class XWalkCoreWrapper {
         try {
             md = MessageDigest.getInstance(hashAlgorithm);
         } catch (NoSuchAlgorithmException | NullPointerException e) {
-            Assert.fail("Invalid hash algorithm");
+            throw new IllegalArgumentException("Invalid hash algorithm");
         }
 
         byte[] hashArray = hexStringToByteArray(hashCode);
         if (hashArray == null) {
-            Assert.fail("Invalid hash code");
+            throw new IllegalArgumentException("Invalid hash code");
         }
 
         for (int i = 0; i < packageInfo.signatures.length; ++i) {
@@ -561,26 +519,71 @@ class XWalkCoreWrapper {
         return null;
     }
 
-    public static String getApplicationAbi() {
-        return Build.CPU_ABI;
+    private String getApplicationMetaData(String name) {
+        try {
+            PackageManager packageManager = mWrapperContext.getPackageManager();
+            ApplicationInfo appInfo = packageManager.getApplicationInfo(
+                    mWrapperContext.getPackageName(), PackageManager.GET_META_DATA);
+            return appInfo.metaData.getString(name);
+        } catch (NameNotFoundException | NullPointerException e) {
+        }
+        return null;
     }
 
-    public static String getPrimaryCpuAbi() {
+    public static String getRuntimeAbi() {
+        String runtimeAbi = System.getProperty("os.arch").toLowerCase();
+        switch (runtimeAbi) {
+            case "x86":
+            case "i686":
+            case "i386":
+            case "ia32":
+                return "x86";
+            case "x64":
+            case "x86_64":
+                return "x86_64";
+            case "armv7l":
+            case "armeabi":
+            case "armeabi-v7a":
+                return "armeabi-v7a";
+            case "aarch64":
+            case "armv8":
+            case "arm64":
+                return "arm64-v8a";
+            default:
+                throw new RuntimeException("Unexpected runtime ABI: " + runtimeAbi);
+        }
+    }
+
+    public static String getDeviceAbi() {
+        String deviceAbi = "";
         try {
-            return Build.SUPPORTED_ABIS[0];
+            deviceAbi = Build.SUPPORTED_ABIS[0].toLowerCase();
         } catch (NoSuchFieldError e) {
             try {
                 Process process = Runtime.getRuntime().exec("getprop ro.product.cpu.abi");
                 InputStreamReader ir = new InputStreamReader(process.getInputStream());
                 BufferedReader input = new BufferedReader(ir);
-                String abi = input.readLine();
+                deviceAbi = input.readLine().toLowerCase();
                 input.close();
                 ir.close();
-                return abi;
             } catch (IOException ex) {
+                // CPU_ABI is deprecated in API level 21 and maybe incorrect on Houdini
+                deviceAbi = Build.CPU_ABI.toLowerCase();
             }
         }
-        // CPU_ABI is deprecated in API level 21 and maybe incorrect on Houdini
-        return Build.CPU_ABI;
+
+        switch (deviceAbi) {
+            case "x86":
+                return "x86";
+            case "x86_64":
+                return "x86_64";
+            case "armeabi":
+            case "armeabi-v7a":
+                return "armeabi-v7a";
+            case "arm64-v8a":
+                return "arm64-v8a";
+            default:
+                throw new RuntimeException("Unexpected device ABI: " + deviceAbi);
+        }
     }
 }

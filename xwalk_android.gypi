@@ -17,7 +17,7 @@
         '../components/components.gyp:visitedlink_renderer',
         '../components/components.gyp:web_contents_delegate_android',
         '../skia/skia.gyp:skia',
-        '../third_party/mojo/mojo_public.gyp:mojo_cpp_bindings',
+        '../mojo/mojo_public.gyp:mojo_cpp_bindings',
         'xwalk_core_extensions_native_jni',
         'xwalk_core_jar_jni',
         'xwalk_core_native_jni',
@@ -248,12 +248,10 @@
         'resource_dir': 'runtime/android/runtime_lib/res',
         'native_lib_target': 'libxwalkcore',
         'additional_input_paths': [
-          '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/jsapi/contacts_api.js',
-          '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/jsapi/device_capabilities_api.js',
           '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/jsapi/launch_screen_api.js',
-          '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/jsapi/messaging_api.js',
           '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/jsapi/wifidirect_api.js',
           '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/xwalk.pak',
+          '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/xwalk_100_percent.pak',
         ],
         'conditions': [
           ['icu_use_data_file_flag==1', {
@@ -287,6 +285,7 @@
             'base_inputs': [
               '<(dex_path)',
               '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/xwalk.pak',
+              '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/xwalk_100_percent.pak',
               '<(PRODUCT_DIR)/xwalk_runtime_lib/assets/icudtl.dat',
             ],
             'build_system_inputs': [
@@ -326,6 +325,7 @@
           'destination': '<(PRODUCT_DIR)/xwalk_runtime_lib/assets',
           'files': [
             '<(PRODUCT_DIR)/xwalk.pak',
+            '<(PRODUCT_DIR)/xwalk_100_percent.pak',
           ],
           'conditions': [
             ['icu_use_data_file_flag==1', {
@@ -352,9 +352,6 @@
           'files': [
             'experimental/launch_screen/launch_screen_api.js',
             'experimental/wifidirect/wifidirect_api.js',
-            'runtime/android/core_internal/src/org/xwalk/core/internal/extension/api/contacts/contacts_api.js',
-            'runtime/android/core_internal/src/org/xwalk/core/internal/extension/api/device_capabilities/device_capabilities_api.js',
-            'runtime/android/core_internal/src/org/xwalk/core/internal/extension/api/messaging/messaging_api.js',
           ],
         },
       ],

@@ -34,8 +34,8 @@ void XWalkNotificationManager::ShowDesktopNotification(
     content::BrowserContext* browser_context,
     const GURL& origin,
     const content::PlatformNotificationData& notification_data,
-    const SkBitmap& icon,
-    scoped_ptr<content::DesktopNotificationDelegate> delegate,
+    const content::NotificationResources& notification_resources,
+    std::unique_ptr<content::DesktopNotificationDelegate> delegate,
     base::Closure* cancel_callback) {
   if (!initialized_)
     return;
@@ -49,15 +49,14 @@ void XWalkNotificationManager::ShowDesktopNotification(
       notification_data.title,
       notification_data.body,
       notification_data.icon,
-      icon,
+      notification_resources,
       notification_data.silent);
   *cancel_callback = base::Bind(&DismissNotification,
       notification);
 }
 
 void XWalkNotificationManager::RemoveNotification(
-    XWalkNotificationWin* notification)
-{
+    XWalkNotificationWin* notification) {
   notification->Destroy();
   notifications_.erase(notification);
 }

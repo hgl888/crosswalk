@@ -25,8 +25,6 @@ import android.content.res.Resources.NotFoundException;
 import android.os.Build;
 import android.util.Log;
 
-import junit.framework.Assert;
-
 import org.chromium.base.CommandLine;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.PathUtils;
@@ -49,12 +47,14 @@ class XWalkViewDelegate {
     private static final String PRIVATE_DATA_DIRECTORY_SUFFIX = "xwalkcore";
     private static final String XWALK_CORE_EXTRACTED_DIR = "extracted_xwalkcore";
     private static final String META_XWALK_ENABLE_DOWNLOAD_MODE = "xwalk_enable_download_mode";
+    private static final String META_XWALK_DOWNLOAD_MODE = "xwalk_download_mode";
 
     // TODO(rakuco,lincsoon): This list is also in generate_xwalk_core_library.py.
     // We should remove it from one of the places to avoid duplication.
     private static final String[] MANDATORY_PAKS = {
             "xwalk.pak",
             "icudtl.dat",
+            "xwalk_100_percent.pak",
             // Please refer to XWALK-3516, disable v8 use external startup data,
             // reopen it if needed later.
             // "natives_blob.bin",
@@ -100,7 +100,9 @@ class XWalkViewDelegate {
     }
 
     public static void init(Context libContext, Context appContext) {
-        if (!loadXWalkLibrary(libContext, null)) Assert.fail();
+        if (!loadXWalkLibrary(libContext, null)) {
+            throw new RuntimeException("Failed to load native library");
+        }
 
         try {
             if (libContext == null) {
@@ -145,7 +147,7 @@ class XWalkViewDelegate {
             Log.d(TAG, "Native library is built for IA");
         } else {
             Log.d(TAG, "Native library is built for ARM");
-            if (sDeviceAbi.equalsIgnoreCase("x86") || sDeviceAbi.equalsIgnoreCase("x86_64")) {
+            if (sDeviceAbi.equals("x86") || sDeviceAbi.equals("x86_64")) {
                 sLoadedByHoudini = true;
                 return false;
             }
@@ -210,18 +212,6 @@ class XWalkViewDelegate {
         });
     }
 
-    private static boolean isDownloadModeEnabled(final Context context) {
-        try {
-            PackageManager packageManager = context.getPackageManager();
-            ApplicationInfo appInfo = packageManager.getApplicationInfo(
-                    context.getPackageName(), PackageManager.GET_META_DATA);
-            String enableStr = appInfo.metaData.getString(META_XWALK_ENABLE_DOWNLOAD_MODE);
-            return enableStr.equalsIgnoreCase("enable");
-        } catch (NameNotFoundException | NullPointerException e) {
-        }
-        return false;
-    }
-
     /**
      * Plugs an instance of ResourceExtractor.ResourceIntercepter() into ResourceExtractor.
      *
@@ -231,7 +221,13 @@ class XWalkViewDelegate {
     private static void setupResourceInterceptor(final Context context) throws IOException {
         final boolean isSharedMode =
                 !context.getPackageName().equals(context.getApplicationContext().getPackageName());
-        final boolean isDownloadMode = isDownloadModeEnabled(context);
+
+        String enable = getApplicationMetaData(context, META_XWALK_DOWNLOAD_MODE);
+        if (enable == null) {
+            enable = getApplicationMetaData(context, META_XWALK_ENABLE_DOWNLOAD_MODE);
+        }
+        final boolean isDownloadMode = enable != null
+                && (enable.equalsIgnoreCase("enable") || enable.equalsIgnoreCase("true"));
 
         // The test APKs (XWalkCoreShell, XWalkCoreInternalShell etc) are different from normal
         // Crosswalk apps: even though they use Crosswalk in embedded mode, the resources are stored
@@ -272,7 +268,7 @@ class XWalkViewDelegate {
                     try {
                         return context.getAssets().open(resource);
                     } catch (IOException e) {
-                        Assert.fail(resource + " can't be found in assets.");
+                        throw new RuntimeException(resource + " can't be found in assets.");
                     }
                 } else if (isDownloadMode) {
                     try {
@@ -280,7 +276,7 @@ class XWalkViewDelegate {
                                 XWALK_CORE_EXTRACTED_DIR, Context.MODE_PRIVATE).getAbsolutePath();
                         return new FileInputStream(new File(resDir, resource));
                     } catch (FileNotFoundException e) {
-                        Assert.fail(resource + " can't be found.");
+                        throw new RuntimeException(resource + " can't be found.");
                     }
                 } else {
                     String resourceName = resource.split("\\.")[0];
@@ -288,10 +284,9 @@ class XWalkViewDelegate {
                     try {
                         return context.getResources().openRawResource(resourceId);
                     } catch (NotFoundException e) {
-                        Assert.fail("R.raw." + resourceName + " can't be found.");
+                        throw new RuntimeException("R.raw." + resourceName + " can't be found.");
                     }
                 }
-                return null;
             }
         });
     }
@@ -312,29 +307,33 @@ class XWalkViewDelegate {
         return resourceId;
     }
 
+    private static String getApplicationMetaData(Context context, String name) {
+        try {
+            PackageManager packageManager = context.getPackageManager();
+            ApplicationInfo appInfo = packageManager.getApplicationInfo(
+                    context.getPackageName(), PackageManager.GET_META_DATA);
+            return appInfo.metaData.getString(name);
+        } catch (NameNotFoundException | NullPointerException e) {
+        }
+        return null;
+    }
+
     private static native boolean nativeIsLibraryBuiltForIA();
 
     static {
         try {
-            sDeviceAbi = Build.SUPPORTED_ABIS[0];
-
-            StringBuffer supported_abis = new StringBuffer();
-            supported_abis.append(sDeviceAbi);
-            for (int i = 1; i < Build.SUPPORTED_ABIS.length; ++i) {
-                supported_abis.append(", " + Build.SUPPORTED_ABIS[i]);
-            }
-            Log.d(TAG, "Supported ABIs: " + supported_abis.toString());
+            sDeviceAbi = Build.SUPPORTED_ABIS[0].toLowerCase();
         } catch (NoSuchFieldError e) {
             try {
                 Process process = Runtime.getRuntime().exec("getprop ro.product.cpu.abi");
                 InputStreamReader ir = new InputStreamReader(process.getInputStream());
                 BufferedReader input = new BufferedReader(ir);
-                sDeviceAbi = input.readLine();
+                sDeviceAbi = input.readLine().toLowerCase();
                 input.close();
                 ir.close();
             } catch (IOException ex) {
                 // CPU_ABI is deprecated in API level 21 and maybe incorrect on Houdini
-                sDeviceAbi = Build.CPU_ABI;
+                sDeviceAbi = Build.CPU_ABI.toLowerCase();
             }
         }
         Log.d(TAG, "Device ABI: " + sDeviceAbi);

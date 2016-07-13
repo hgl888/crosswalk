@@ -9,7 +9,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/content/renderer/autofill_agent.h"
 #include "components/autofill/content/renderer/password_autofill_agent.h"
-#include "components/nacl/renderer/ppb_nacl_private_impl.h"
 #include "components/visitedlink/renderer/visitedlink_slave.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_frame_observer.h"
@@ -107,13 +106,8 @@ void XWalkContentRendererClient::RenderThreadStarted() {
   content::RenderThread* thread = content::RenderThread::Get();
   xwalk_render_process_observer_.reset(new XWalkRenderProcessObserver);
   thread->AddObserver(xwalk_render_process_observer_.get());
-#if defined(OS_ANDROID)
   visited_link_slave_.reset(new visitedlink::VisitedLinkSlave);
   thread->AddObserver(visited_link_slave_.get());
-#endif
-
-  // Using WebString requires blink initialization.
-  thread->EnsureWebKitInitialized();
 
   base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   if (!cmd_line->HasSwitch(switches::kXWalkDisableExtensions))
@@ -232,10 +226,10 @@ void XWalkContentRendererClient::RenderViewCreated(
 
 void XWalkContentRendererClient::DidCreateModuleSystem(
     extensions::XWalkModuleSystem* module_system) {
-  scoped_ptr<extensions::XWalkNativeModule> app_module(
+  std::unique_ptr<extensions::XWalkNativeModule> app_module(
       new application::ApplicationNativeModule());
   module_system->RegisterNativeModule("application", std::move(app_module));
-  scoped_ptr<extensions::XWalkNativeModule> isolated_file_system_module(
+  std::unique_ptr<extensions::XWalkNativeModule> isolated_file_system_module(
       new extensions::IsolatedFileSystem());
   module_system->RegisterNativeModule("isolated_file_system",
       std::move(isolated_file_system_module));
@@ -246,15 +240,6 @@ void XWalkContentRendererClient::DidCreateModuleSystem(
           IDR_XWALK_APPLICATION_WIDGET_COMMON_API));
 }
 
-const void* XWalkContentRendererClient::CreatePPAPIInterface(
-    const std::string& interface_name) {
-#if defined(ENABLE_PLUGINS) && !defined(DISABLE_NACL)
-  if (interface_name == PPB_NACL_PRIVATE_INTERFACE)
-    return nacl::GetNaClPrivateInterface();
-#endif
-  return NULL;
-}
-
 bool XWalkContentRendererClient::IsExternalPepperPlugin(
     const std::string& module_name) {
   // TODO(bbudge) remove this when the trusted NaCl plugin has been removed.
@@ -263,16 +248,14 @@ bool XWalkContentRendererClient::IsExternalPepperPlugin(
   return module_name == "Native Client";
 }
 
-#if defined(OS_ANDROID)
-unsigned long long XWalkContentRendererClient::VisitedLinkHash( // NOLINT
+unsigned long long XWalkContentRendererClient::VisitedLinkHash(
     const char* canonical_url, size_t length) {
   return visited_link_slave_->ComputeURLFingerprint(canonical_url, length);
 }
 
-bool XWalkContentRendererClient::IsLinkVisited(unsigned long long link_hash) { // NOLINT
+bool XWalkContentRendererClient::IsLinkVisited(unsigned long long link_hash) {
   return visited_link_slave_->IsVisited(link_hash);
 }
-#endif
 
 bool XWalkContentRendererClient::WillSendRequest(blink::WebFrame* frame,
                      ui::PageTransition transition_type,

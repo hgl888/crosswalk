@@ -41,7 +41,6 @@
         '../content/content.gyp:content_browser',
         '../content/content.gyp:content_common',
         '../content/content.gyp:content_gpu',
-        '../content/content.gyp:content_plugin',
         '../content/content.gyp:content_ppapi_plugin',
         '../content/content.gyp:content_renderer',
         '../content/content.gyp:content_utility',
@@ -91,10 +90,13 @@
         'runtime/app/xwalk_main_delegate.h',
         'runtime/browser/android/cookie_manager.cc',
         'runtime/browser/android/cookie_manager.h',
+        'runtime/browser/android/find_helper.cc',
+        'runtime/browser/android/find_helper.h',
         'runtime/browser/android/net/android_protocol_handler.cc',
         'runtime/browser/android/net/android_protocol_handler.h',
         'runtime/browser/android/net/android_stream_reader_url_request_job.cc',
         'runtime/browser/android/net/android_stream_reader_url_request_job.h',
+        'runtime/browser/android/net/init_native_callback.h',
         'runtime/browser/android/net/input_stream.h',
         'runtime/browser/android/net/input_stream_impl.cc',
         'runtime/browser/android/net/input_stream_impl.h',
@@ -102,12 +104,15 @@
         'runtime/browser/android/net/input_stream_reader.h',
         'runtime/browser/android/net/url_constants.cc',
         'runtime/browser/android/net/url_constants.h',
+        'runtime/browser/android/net/xwalk_cookie_store_wrapper.cc',
+        'runtime/browser/android/net/xwalk_cookie_store_wrapper.h',
         'runtime/browser/android/net/xwalk_url_request_job_factory.cc',
         'runtime/browser/android/net/xwalk_url_request_job_factory.h',
         'runtime/browser/android/net_disk_cache_remover.cc',
         'runtime/browser/android/net_disk_cache_remover.h',
         'runtime/browser/android/renderer_host/xwalk_render_view_host_ext.cc',
         'runtime/browser/android/renderer_host/xwalk_render_view_host_ext.h',
+        'runtime/browser/android/scoped_allow_wait_for_legacy_web_view_api.h',
         'runtime/browser/android/state_serializer.cc',
         'runtime/browser/android/state_serializer.h',
         'runtime/browser/android/xwalk_autofill_client_android.cc',
@@ -250,6 +255,8 @@
         'runtime/browser/ui/xwalk_javascript_native_dialog_factory_views.cc',
         'runtime/browser/ui/xwalk_views_delegate.cc',
         'runtime/browser/ui/xwalk_views_delegate.h',
+        'runtime/browser/wifidirect_component_win.cc',
+        'runtime/browser/wifidirect_component_win.h',
         'runtime/browser/xwalk_app_extension_bridge.cc',
         'runtime/browser/xwalk_app_extension_bridge.h',
         'runtime/browser/xwalk_application_mac.h',
@@ -287,10 +294,18 @@
         'runtime/browser/xwalk_platform_notification_service.h',
         'runtime/browser/xwalk_pref_store.cc',
         'runtime/browser/xwalk_pref_store.h',
+        'runtime/browser/xwalk_presentation_service_delegate.cc',
+        'runtime/browser/xwalk_presentation_service_delegate.h',
         'runtime/browser/xwalk_presentation_service_delegate_android.cc',
         'runtime/browser/xwalk_presentation_service_delegate_android.h',
         'runtime/browser/xwalk_presentation_service_delegate_win.cc',
         'runtime/browser/xwalk_presentation_service_delegate_win.h',
+        'runtime/browser/xwalk_presentation_service_helper.cc',
+        'runtime/browser/xwalk_presentation_service_helper.h',
+        'runtime/browser/xwalk_presentation_service_helper_android.cc',
+        'runtime/browser/xwalk_presentation_service_helper_android.h',
+        'runtime/browser/xwalk_presentation_service_helper_win.cc',
+        'runtime/browser/xwalk_presentation_service_helper_win.h',
         'runtime/browser/xwalk_render_message_filter.cc',
         'runtime/browser/xwalk_render_message_filter.h',
         'runtime/browser/xwalk_runner.cc',
@@ -657,15 +672,11 @@
               '<(SHARED_INTERMEDIATE_DIR)/xwalk/xwalk_application_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/xwalk/xwalk_extensions_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/xwalk/xwalk_sysapps_resources.pak',
-              '<(SHARED_INTERMEDIATE_DIR)/content/app/resources/content_resources_100_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
-              '<(SHARED_INTERMEDIATE_DIR)/ui/resources/ui_resources_100_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/ui/strings/app_locale_settings_en-US.pak',
               '<(SHARED_INTERMEDIATE_DIR)/ui/strings/ui_strings_en-US.pak',
-              '<(SHARED_INTERMEDIATE_DIR)/components/components_resources_100_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/components/components_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/content/content_resources.pak',
-              '<(SHARED_INTERMEDIATE_DIR)/blink/public/resources/blink_image_resources_100_percent.pak',
               '<(SHARED_INTERMEDIATE_DIR)/blink/public/resources/blink_resources.pak',
               '<(SHARED_INTERMEDIATE_DIR)/content/app/strings/content_strings_en-US.pak',
             ],
@@ -680,6 +691,21 @@
                 ],
               },
             }],
+          ],
+          'includes': ['../build/repack_action.gypi'],
+        },
+        {
+          'action_name': 'repack_xwalk_resources_100_percent',
+          'variables': {
+            'pak_inputs': [
+              '<(SHARED_INTERMEDIATE_DIR)/content/app/resources/content_resources_100_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/resources/ui_resources_100_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/components/components_resources_100_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/blink/public/resources/blink_image_resources_100_percent.pak',
+            ],
+            'pak_output': '<(PRODUCT_DIR)/xwalk_100_percent.pak',
+          },
+          'conditions': [
             ['toolkit_views==1', {
               'variables': {
                 'pak_inputs+': [
@@ -688,6 +714,39 @@
               },
             }],
           ],
+          'includes': ['../build/repack_action.gypi'],
+        },
+        {
+          'action_name': 'repack_xwalk_resources_200_percent',
+          'variables': {
+            'pak_inputs': [
+              '<(SHARED_INTERMEDIATE_DIR)/content/app/resources/content_resources_200_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/ui/resources/ui_resources_200_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/components/components_resources_200_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/blink/public/resources/blink_image_resources_200_percent.pak',
+            ],
+            'pak_output': '<(PRODUCT_DIR)/xwalk_200_percent.pak',
+          },
+          'conditions': [
+            ['toolkit_views==1', {
+              'variables': {
+                'pak_inputs+': [
+                  '<(SHARED_INTERMEDIATE_DIR)/ui/views/resources/views_resources_200_percent.pak',
+                ],
+              },
+            }],
+          ],
+          'includes': ['../build/repack_action.gypi'],
+        },
+        {
+          'action_name': 'repack_xwalk_resources_300_percent',
+          'variables': {
+            'pak_inputs': [
+              '<(SHARED_INTERMEDIATE_DIR)/ui/resources/ui_resources_300_percent.pak',
+              '<(SHARED_INTERMEDIATE_DIR)/components/components_resources_300_percent.pak',
+            ],
+            'pak_output': '<(PRODUCT_DIR)/xwalk_300_percent.pak',
+          },
           'includes': ['../build/repack_action.gypi'],
         },
       ],
@@ -735,7 +794,8 @@
           ],
           'dependencies': [
             '../sandbox/sandbox.gyp:sandbox',
-            'dotnet/dotnet_bridge.gyp:dotnet_bridge'
+            'dotnet/dotnet_bridge.gyp:dotnet_bridge',
+            'experimental/wifidirect/wifidirect_extension.gyp:*'
           ],
           'sources': [
             '../content/app/sandbox_helper_win.cc', # Needed by InitializedSandbox
@@ -883,6 +943,9 @@
           'mac_bundle_resources': [
             'runtime/app/English.lproj/MainMenu.xib',
             '<(PRODUCT_DIR)/xwalk.pak',
+            '<(PRODUCT_DIR)/xwalk_100_percent.pak',
+            '<(PRODUCT_DIR)/xwalk_200_percent.pak',
+            '<(PRODUCT_DIR)/xwalk_300_percent.pak',
             '<(PRODUCT_DIR)/snapshot_blob.bin',
             '<(PRODUCT_DIR)/natives_blob.bin',
           ],

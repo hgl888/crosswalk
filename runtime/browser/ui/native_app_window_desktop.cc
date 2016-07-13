@@ -396,7 +396,7 @@ void NativeAppWindowDesktop::AddDownloadItem(
       ui::SelectFileDialog::Create(this, new RuntimeSelectFilePolicy);
   ui::SelectFileDialog::FileTypeInfo file_type_info;
   file_type_info.include_all_files = true;
-  file_type_info.support_drive = true;
+  file_type_info.allowed_paths = ui::SelectFileDialog::FileTypeInfo::ANY_PATH;
   DownloadSelectFileParams* params =
       new DownloadSelectFileParams(download_item, callback);
   select_file_dialog_->SelectFile(ui::SelectFileDialog::SELECT_SAVEAS_FILE,
@@ -412,7 +412,7 @@ void NativeAppWindowDesktop::AddDownloadItem(
 void NativeAppWindowDesktop::FileSelected(const base::FilePath& path,
     int index,
     void* params) {
-  scoped_ptr<DownloadSelectFileParams> scoped_params(
+  std::unique_ptr<DownloadSelectFileParams> scoped_params(
       static_cast<DownloadSelectFileParams*>(params));
   content::DownloadItem* item = scoped_params->item;
   content::DownloadTargetCallback& callback = scoped_params->callback;
@@ -428,7 +428,7 @@ void NativeAppWindowDesktop::FileSelected(const base::FilePath& path,
 }
 
 void NativeAppWindowDesktop::FileSelectionCanceled(void* params) {
-  scoped_ptr<DownloadSelectFileParams> scoped_params(
+  std::unique_ptr<DownloadSelectFileParams> scoped_params(
       static_cast<DownloadSelectFileParams*>(params));
   const base::FilePath empty;
   scoped_params->callback.Run(empty,

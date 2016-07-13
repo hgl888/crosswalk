@@ -34,7 +34,6 @@ class XWalkRenderProcessObserver : public content::RenderProcessObserver {
 
   // content::RenderProcessObserver implementation.
   bool OnControlMessageReceived(const IPC::Message& message) override;
-  void WebKitInitialized() override;
   void OnRenderProcessShutdown() override;
 
   bool IsWarpMode() const {
@@ -49,12 +48,16 @@ class XWalkRenderProcessObserver : public content::RenderProcessObserver {
 
  private:
   void OnSetAccessWhiteList(
-      const GURL& source, const GURL& dest, bool allow_subdomains);
+      const GURL& source,
+      const GURL& dest,
+      const std::string& dest_host,
+      bool allow_subdomains);
   void OnEnableSecurityMode(
       const GURL& url,
       application::ApplicationSecurityPolicy::SecurityMode mode);
   void AddAccessWhiteListEntry(const GURL& source,
                                const GURL& dest,
+                               const std::string& dest_host,
                                bool allow_subdomains);
 
   bool is_blink_initialized_;

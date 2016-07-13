@@ -51,11 +51,10 @@
           '<(PRODUCT_DIR)/xwalk_xwview/assets/www/request_focus_main.html',
           '<(PRODUCT_DIR)/xwalk_xwview/assets/www/request_focus_right_frame.html',
           '<(PRODUCT_DIR)/xwalk_xwview/assets/www/request_focus_right_frame1.html',
+          '<(PRODUCT_DIR)/xwalk_xwview/assets/www/asset_file.html',
           '<(PRODUCT_DIR)/xwalk_xwview/assets/xwalk.pak',
-          '<(PRODUCT_DIR)/xwalk_xwview/assets/jsapi/contacts_api.js',
-          '<(PRODUCT_DIR)/xwalk_xwview/assets/jsapi/device_capabilities_api.js',
+          '<(PRODUCT_DIR)/xwalk_xwview/assets/xwalk_100_percent.pak',
           '<(PRODUCT_DIR)/xwalk_xwview/assets/jsapi/launch_screen_api.js',
-          '<(PRODUCT_DIR)/xwalk_xwview/assets/jsapi/messaging_api.js',
           '<(PRODUCT_DIR)/xwalk_xwview/assets/jsapi/wifidirect_api.js',
         ],
         'conditions': [
@@ -76,6 +75,7 @@
             'test/android/data/request_focus_main.html',
             'test/android/data/request_focus_right_frame.html',
             'test/android/data/request_focus_right_frame1.html',
+            'test/android/data/asset_file.html',
             'test/android/data/www/cross_origin.html',
           ],
         },
@@ -83,9 +83,6 @@
           'destination': '<(PRODUCT_DIR)/xwalk_xwview/assets/jsapi',
           'files': [
             'experimental/launch_screen/launch_screen_api.js',
-            'runtime/android/core_internal/src/org/xwalk/core/internal/extension/api/contacts/contacts_api.js',
-            'runtime/android/core_internal/src/org/xwalk/core/internal/extension/api/device_capabilities/device_capabilities_api.js',
-            'runtime/android/core_internal/src/org/xwalk/core/internal/extension/api/messaging/messaging_api.js',
             'experimental/wifidirect/wifidirect_api.js',
           ],
         },
@@ -103,6 +100,7 @@
           'destination': '<(PRODUCT_DIR)/xwalk_xwview/assets',
           'files': [
             '<(PRODUCT_DIR)/xwalk.pak',
+            '<(PRODUCT_DIR)/xwalk_100_percent.pak',
           ],
           'conditions': [
             ['icu_use_data_file_flag==1', {
@@ -153,6 +151,7 @@
           '<(PRODUCT_DIR)/xwalk_xwview_test/assets/echo_sync_java.html',
           '<(PRODUCT_DIR)/xwalk_xwview_test/assets/favicon.html',
           '<(PRODUCT_DIR)/xwalk_xwview_test/assets/file_chooser.html',
+          '<(PRODUCT_DIR)/xwalk_xwview_test/assets/find.html',
           '<(PRODUCT_DIR)/xwalk_xwview_test/assets/framesEcho.html',
           '<(PRODUCT_DIR)/xwalk_xwview_test/assets/fullscreen_enter_exit.html',
           '<(PRODUCT_DIR)/xwalk_xwview_test/assets/fullscreen_togged.html',
@@ -181,6 +180,7 @@
             'test/android/data/echo_sync_java.html',
             'test/android/data/favicon.html',
             'test/android/data/file_chooser.html',
+            'test/android/data/find.html',
             'test/android/data/framesEcho.html',
             'test/android/data/fullscreen_enter_exit.html',
             'test/android/data/fullscreen_togged.html',
@@ -342,16 +342,14 @@
         ],
         'additional_input_paths': [
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/index.html',
-          '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/jsapi/contacts_api.js',
-          '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/jsapi/device_capabilities_api.js',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/jsapi/launch_screen_api.js',
-          '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/jsapi/messaging_api.js',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/jsapi/wifidirect_api.js',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/manifest.json',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/xwalk-extensions/myextension/myextension.js',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/xwalk-extensions/myextension/myextension.json',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/sampapp-icon-helloworld.png',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/xwalk.pak',
+          '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/xwalk_100_percent.pak',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/www/manifest_self.json',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/www/manifest_inline_script.json',
           '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets/www/cross_origin.html',
@@ -393,9 +391,6 @@
           'files': [
             'experimental/launch_screen/launch_screen_api.js',
             'experimental/wifidirect/wifidirect_api.js',
-            'runtime/android/core_internal/src/org/xwalk/core/internal/extension/api/contacts/contacts_api.js',
-            'runtime/android/core_internal/src/org/xwalk/core/internal/extension/api/device_capabilities/device_capabilities_api.js',
-            'runtime/android/core_internal/src/org/xwalk/core/internal/extension/api/messaging/messaging_api.js',
           ],
         },
         {
@@ -423,6 +418,7 @@
           'destination': '<(PRODUCT_DIR)/runtime_client_embedded_shell/assets',
           'files': [
             '<(PRODUCT_DIR)/xwalk.pak',
+            '<(PRODUCT_DIR)/xwalk_100_percent.pak',
           ],
           'conditions': [
             ['icu_use_data_file_flag==1', {
@@ -457,14 +453,11 @@
         'java_in_dir': 'test/android/runtime_client/javatests',
         'is_test_apk': 1,
         'additional_input_paths': [
-          '<(PRODUCT_DIR)/runtime_client_test/assets/contacts.html',
-          '<(PRODUCT_DIR)/runtime_client_test/assets/device_capabilities.html',
           '<(PRODUCT_DIR)/runtime_client_test/assets/displayAvailableTest.html',
           '<(PRODUCT_DIR)/runtime_client_test/assets/echo.html',
           '<(PRODUCT_DIR)/runtime_client_test/assets/echo_binary_java.html',
           '<(PRODUCT_DIR)/runtime_client_test/assets/echo_java.html',
           '<(PRODUCT_DIR)/runtime_client_test/assets/echo_sync_java.html',
-          '<(PRODUCT_DIR)/runtime_client_test/assets/messaging_mini.html',
           '<(PRODUCT_DIR)/runtime_client_test/assets/native_file_system.html',
           '<(PRODUCT_DIR)/runtime_client_test/assets/screen_orientation.html',
           '<(PRODUCT_DIR)/runtime_client_test/assets/timer.html',
@@ -476,15 +469,12 @@
           'destination': '<(PRODUCT_DIR)/runtime_client_test/assets',
           'files': [
             'extensions/test/data/echo.html',
-            'test/android/data/contacts.html',
-            'test/android/data/device_capabilities.html',
             'test/android/data/displayAvailableTest.html',
             'test/android/data/echo_binary_java.html',
             'test/android/data/echo_java.html',
             'test/android/data/echo_sync_java.html',
             'test/android/data/native_file_system.html',
             'test/android/data/screen_orientation.html',
-            'test/android/data/sysapps/messaging/messaging_mini.html',
             'test/android/data/timer.html',
           ],
         },
@@ -516,14 +506,11 @@
         'java_in_dir': 'test/android/runtime_client_embedded/javatests',
         'is_test_apk': 1,
         'additional_input_paths': [
-          '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/contacts.html',
-          '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/device_capabilities.html',
           '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/displayAvailableTest.html',
           '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/echo.html',
           '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/echo_binary_java.html',
           '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/echo_java.html',
           '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/echo_sync_java.html',
-          '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/messaging_mini.html',
           '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/native_file_system.html',
           '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/screen_orientation.html',
           '<(PRODUCT_DIR)/runtime_client_embedded_test/assets/timer.html',
@@ -535,15 +522,12 @@
           'destination': '<(PRODUCT_DIR)/runtime_client_embedded_test/assets',
           'files': [
             'extensions/test/data/echo.html',
-            'test/android/data/contacts.html',
-            'test/android/data/device_capabilities.html',
             'test/android/data/displayAvailableTest.html',
             'test/android/data/echo_binary_java.html',
             'test/android/data/echo_java.html',
             'test/android/data/echo_sync_java.html',
             'test/android/data/native_file_system.html',
             'test/android/data/screen_orientation.html',
-            'test/android/data/sysapps/messaging/messaging_mini.html',
             'test/android/data/timer.html',
           ],
         },
@@ -578,6 +562,7 @@
           '<(PRODUCT_DIR)/sample/assets/new_window.html',
           '<(PRODUCT_DIR)/sample/assets/pause_timers.html',
           '<(PRODUCT_DIR)/sample/assets/xwalk.pak',
+          '<(PRODUCT_DIR)/sample/assets/xwalk_100_percent.pak',
         ],
         'conditions': [
           ['icu_use_data_file_flag==1', {
@@ -610,6 +595,7 @@
             'runtime/android/sample/assets/pause_timers.html',
             'test/android/data/echo_java.html',
             '<(PRODUCT_DIR)/xwalk.pak',
+            '<(PRODUCT_DIR)/xwalk_100_percent.pak',
           ],
           'conditions': [
             ['icu_use_data_file_flag==1', {
@@ -646,6 +632,7 @@
         'additional_input_paths': [
           '<(PRODUCT_DIR)/xwalk_internal_xwview/assets/www/index.html',
           '<(PRODUCT_DIR)/xwalk_internal_xwview/assets/xwalk.pak',
+          '<(PRODUCT_DIR)/xwalk_internal_xwview/assets/xwalk_100_percent.pak',
         ],
         'conditions': [
           ['icu_use_data_file_flag==1', {
@@ -683,6 +670,7 @@
           'destination': '<(PRODUCT_DIR)/xwalk_internal_xwview/assets',
           'files': [
             '<(PRODUCT_DIR)/xwalk.pak',
+            '<(PRODUCT_DIR)/xwalk_100_percent.pak',
           ],
           'conditions': [
             ['icu_use_data_file_flag==1', {

@@ -23,9 +23,10 @@ import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.ValueCallback;
 import android.webkit.WebResourceResponse;
+import android.widget.Toast;
 
 import java.security.cert.X509Certificate;
-import java.security.KeyStore.PrivateKeyEntry;  
+import java.security.KeyStore.PrivateKeyEntry;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.util.ArrayList;
@@ -41,13 +42,13 @@ import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.ThreadUtils;
 import org.chromium.components.navigation_interception.InterceptNavigationDelegate;
 import org.chromium.components.navigation_interception.NavigationParams;
-import org.chromium.content.browser.ContentVideoViewClient;
+import org.chromium.content.browser.ContentVideoViewEmbedder;
 import org.chromium.content.browser.ContentViewDownloadDelegate;
 import org.chromium.content.browser.DownloadInfo;
 
 import org.xwalk.core.internal.XWalkUIClientInternal.LoadStatusInternal;
 
-// Help bridge callback in XWalkContentsClient to XWalkViewClient and
+// Help bridge callback in XWalkContentsClient to XWalkResourceClient, XWalkUIClient and
 // XWalkWebChromeClient; Also handle the JNI conmmunication logic.
 @JNINamespace("xwalk")
 class XWalkContentsClientBridge extends XWalkContentsClient
@@ -64,6 +65,7 @@ class XWalkContentsClientBridge extends XWalkContentsClient
     private XWalkWebChromeClient mXWalkWebChromeClient;
     private Bitmap mFavicon;
     private XWalkDownloadListenerInternal mDownloadListener;
+    private XWalkFindListenerInternal mFindListener;
     private InterceptNavigationDelegate mInterceptNavigationDelegate;
     private PageLoadListener mPageLoadListener;
     private XWalkNavigationHandler mNavigationHandler;
@@ -96,8 +98,15 @@ class XWalkContentsClientBridge extends XWalkContentsClient
                      mNavigationHandler.handleNavigation(navigationParams);
 
             if (!ignoreNavigation) {
-                // Post a message to UI thread to notify the page is starting to load.
-                mContentsClient.getCallbackHelper().postOnPageStarted(url);
+                // Check whether the fallback url is existed for scheme: intent://.
+                final String fallbackUrl = mNavigationHandler.getFallbackUrl();
+                if (fallbackUrl != null) {
+                    mNavigationHandler.resetFallbackUrl();
+                    mXWalkView.load(fallbackUrl, null);
+                } else {
+                    // Post a message to UI thread to notify the page is starting to load.
+                    mContentsClient.getCallbackHelper().postOnPageStarted(url);
+                }
             }
 
             return ignoreNavigation;
@@ -400,6 +409,8 @@ class XWalkContentsClientBridge extends XWalkContentsClient
     @Override
     public void onFindResultReceived(int activeMatchOrdinal, int numberOfMatches,
             boolean isDoneCounting) {
+        if (mFindListener == null) return;
+        mFindListener.onFindResultReceived(activeMatchOrdinal, numberOfMatches, isDoneCounting);
     }
 
     @Override
@@ -650,7 +661,7 @@ class XWalkContentsClientBridge extends XWalkContentsClient
     }
 
     @Override
-    public ContentVideoViewClient getContentVideoViewClient() {
+    public ContentVideoViewEmbedder getContentVideoViewEmbedder() {
         return new XWalkContentVideoViewClient(this, mXWalkView.getActivity(), mXWalkView);
     }
 
@@ -672,12 +683,18 @@ class XWalkContentsClientBridge extends XWalkContentsClient
     // If returns false, the request is immediately canceled, and any call to proceedSslError
     // has no effect. If returns true, the request should be canceled or proceeded using
     // proceedSslError().
-    // Unlike the webview classic, we do not keep keep a database of certificates that
+    // Unlike the webview classic, we do not keep a database of certificates that
     // are allowed by the user, because this functionality is already handled via
     // ssl_policy in native layers.
     @CalledByNative
     private boolean allowCertificateError(int certError, byte[] derBytes, final String url,
             final int id) {
+        boolean shouldDeny = SslUtil.shouldDenyRequest(certError);
+        if (shouldDeny) {
+            Toast.makeText(mXWalkView.getContext(), R.string.ssl_error_deny_request,
+                    Toast.LENGTH_SHORT).show();
+            return false;
+        }
         final SslCertificate cert = SslUtil.getCertificateFromDerBytes(derBytes);
         if (cert == null) {
             // if the certificate or the client is null, cancel the request
@@ -833,11 +850,6 @@ class XWalkContentsClientBridge extends XWalkContentsClient
         nativeCancelJsResult(mNativeContentsClientBridge, id);
     }
 
-    void exitFullscreen(long nativeWebContents) {
-        if (mNativeContentsClientBridge == 0) return;
-        nativeExitFullscreen(mNativeContentsClientBridge, nativeWebContents);
-    }
-
     public void notificationDisplayed(int id) {
         if (mNativeContentsClientBridge == 0) return;
         nativeNotificationDisplayed(mNativeContentsClientBridge, id);
@@ -857,8 +869,12 @@ class XWalkContentsClientBridge extends XWalkContentsClient
         mDownloadListener = listener;
     }
 
+    void setFindListener(XWalkFindListenerInternal listener) {
+        mFindListener = listener;
+    }
+
     // Implement ContentViewDownloadDelegate methods.
-    public void requestHttpGetDownload(DownloadInfo downloadInfo) {
+    public void requestHttpGetDownload(DownloadInfo downloadInfo, boolean mustDownload) {
         if (mDownloadListener != null) {
             mDownloadListener.onDownloadStart(downloadInfo.getUrl(), downloadInfo.getUserAgent(),
             downloadInfo.getContentDisposition(), downloadInfo.getMimeType(), downloadInfo.getContentLength());
@@ -868,7 +884,7 @@ class XWalkContentsClientBridge extends XWalkContentsClient
     public void onDownloadStarted(String filename, String mimeType) {
     }
 
-    public void onDangerousDownload(String filename, int downloadId) {
+    public void onDangerousDownload(String filename, String downloadGuid) {
     }
 
     public void requestFileAccess(final long callbackId) {
@@ -904,7 +920,6 @@ class XWalkContentsClientBridge extends XWalkContentsClient
     private native void nativeConfirmJsResult(long nativeXWalkContentsClientBridge, int id,
             String prompt);
     private native void nativeCancelJsResult(long nativeXWalkContentsClientBridge, int id);
-    private native void nativeExitFullscreen(long nativeXWalkContentsClientBridge, long nativeWebContents);
     private native void nativeNotificationDisplayed(long nativeXWalkContentsClientBridge, int id);
     private native void nativeNotificationClicked(long nativeXWalkContentsClientBridge, int id);
     private native void nativeNotificationClosed(long nativeXWalkContentsClientBridge, int id, boolean byUser);

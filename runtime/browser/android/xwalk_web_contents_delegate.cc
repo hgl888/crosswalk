@@ -11,6 +11,7 @@
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/lazy_instance.h"
+#include "base/memory/ptr_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/browser/native_web_keyboard_event.h"
@@ -62,7 +63,7 @@ void XWalkWebContentsDelegate::AddNewContents(
 
   if (create_popup) {
     XWalkContent::FromWebContents(source)->SetPendingWebContentsForPopup(
-        make_scoped_ptr(new_contents));
+        base::WrapUnique(new_contents));
     new_contents->WasHidden();
   } else {
     base::MessageLoop::current()->DeleteSoon(FROM_HERE, new_contents);
@@ -271,6 +272,22 @@ bool XWalkWebContentsDelegate::ShouldCreateWebContents(
       ConvertUTF8ToJavaString(env, target_url.spec());
   return Java_XWalkWebContentsDelegate_shouldCreateWebContents(env, obj.obj(),
       java_url.obj());
+}
+
+void XWalkWebContentsDelegate::FindReply(WebContents* web_contents,
+                                         int request_id,
+                                         int number_of_matches,
+                                         const gfx::Rect& selection_rect,
+                                         int active_match_ordinal,
+                                         bool final_update) {
+  XWalkContent* xwalk_content = XWalkContent::FromWebContents(web_contents);
+  if (!xwalk_content)
+    return;
+
+  xwalk_content->GetFindHelper()->HandleFindReply(request_id,
+                                                  number_of_matches,
+                                                  active_match_ordinal,
+                                                  final_update);
 }
 
 bool RegisterXWalkWebContentsDelegate(JNIEnv* env) {

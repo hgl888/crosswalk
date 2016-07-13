@@ -8,7 +8,6 @@
     'files_to_package': [
       '<(PRODUCT_DIR)/VERSION',
       '<(PRODUCT_DIR)/d3dcompiler_47.dll',
-      '<(PRODUCT_DIR)/dbghelp.dll',
       '<(PRODUCT_DIR)/icudtl.dat',
       '<(PRODUCT_DIR)/libEGL.dll',
       '<(PRODUCT_DIR)/libGLESv2.dll',
@@ -17,6 +16,9 @@
       '<(PRODUCT_DIR)/snapshot_blob.bin',
       '<(PRODUCT_DIR)/xwalk.exe',
       '<(PRODUCT_DIR)/xwalk.pak',
+      '<(PRODUCT_DIR)/xwalk_100_percent.pak',
+      '<(PRODUCT_DIR)/xwalk_200_percent.pak',
+      '<(PRODUCT_DIR)/xwalk_300_percent.pak',
       '<(PRODUCT_DIR)/xwalk_dotnet_bridge.dll',
     ],
   },

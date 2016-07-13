@@ -12,6 +12,7 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/lazy_instance.h"
+#include "base/memory/ptr_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -21,7 +22,6 @@
 #include "content/public/browser/browser_thread.h"
 #include "net/base/io_buffer.h"
 #include "net/base/mime_util.h"
-#include "net/base/net_util.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_response_info.h"
 #include "net/http/http_util.h"
@@ -62,8 +62,8 @@ class InputStreamReaderWrapper
     : public base::RefCountedThreadSafe<InputStreamReaderWrapper> {
  public:
   InputStreamReaderWrapper(
-      scoped_ptr<InputStream> input_stream,
-      scoped_ptr<InputStreamReader> input_stream_reader)
+      std::unique_ptr<InputStream> input_stream,
+      std::unique_ptr<InputStreamReader> input_stream_reader)
       : input_stream_(std::move(input_stream)),
         input_stream_reader_(std::move(input_stream_reader)) {
     DCHECK(input_stream_);
@@ -86,8 +86,8 @@ class InputStreamReaderWrapper
   friend class base::RefCountedThreadSafe<InputStreamReaderWrapper>;
   ~InputStreamReaderWrapper() {}
 
-  scoped_ptr<xwalk::InputStream> input_stream_;
-  scoped_ptr<xwalk::InputStreamReader> input_stream_reader_;
+  std::unique_ptr<xwalk::InputStream> input_stream_;
+  std::unique_ptr<xwalk::InputStreamReader> input_stream_reader_;
 
   DISALLOW_COPY_AND_ASSIGN(InputStreamReaderWrapper);
 };
@@ -95,7 +95,7 @@ class InputStreamReaderWrapper
 AndroidStreamReaderURLRequestJob::AndroidStreamReaderURLRequestJob(
     net::URLRequest* request,
     net::NetworkDelegate* network_delegate,
-    scoped_ptr<Delegate> delegate,
+    std::unique_ptr<Delegate> delegate,
     const std::string& content_security_policy)
     : URLRequestJob(request, network_delegate),
       range_parse_result_(net::OK),
@@ -111,20 +111,20 @@ AndroidStreamReaderURLRequestJob::~AndroidStreamReaderURLRequestJob() {
 namespace {
 
 typedef base::Callback<
-    void(scoped_ptr<AndroidStreamReaderURLRequestJob::Delegate>,
-         scoped_ptr<InputStream>)> OnInputStreamOpenedCallback;
+    void(std::unique_ptr<AndroidStreamReaderURLRequestJob::Delegate>,
+         std::unique_ptr<InputStream>)> OnInputStreamOpenedCallback;
 
 // static
 void OpenInputStreamOnWorkerThread(
     scoped_refptr<base::SingleThreadTaskRunner> job_thread_runner,
-    scoped_ptr<AndroidStreamReaderURLRequestJob::Delegate> delegate,
+    std::unique_ptr<AndroidStreamReaderURLRequestJob::Delegate> delegate,
     const GURL& url,
     OnInputStreamOpenedCallback callback) {
 
   JNIEnv* env = AttachCurrentThread();
   DCHECK(env);
 
-  scoped_ptr<InputStream> input_stream = delegate->OpenInputStream(env, url);
+  std::unique_ptr<InputStream> input_stream = delegate->OpenInputStream(env, url);
   job_thread_runner->PostTask(FROM_HERE,
                         base::Bind(callback,
                                    base::Passed(std::move(delegate)),
@@ -173,11 +173,6 @@ void AndroidStreamReaderURLRequestJob::Start() {
     return;
   }
 
-  // Start reading asynchronously so that all error reporting and data
-  // callbacks happen as they would for network requests.
-  SetStatus(net::URLRequestStatus(net::URLRequestStatus::IO_PENDING,
-                                  net::ERR_IO_PENDING));
-
   // This could be done in the InputStreamReader but would force more
   // complex synchronization in the delegate.
   GetWorkerThreadRunner()->PostTask(
@@ -201,14 +196,14 @@ void AndroidStreamReaderURLRequestJob::Kill() {
   URLRequestJob::Kill();
 }
 
-scoped_ptr<InputStreamReader>
+std::unique_ptr<InputStreamReader>
 AndroidStreamReaderURLRequestJob::CreateStreamReader(InputStream* stream) {
-  return make_scoped_ptr(new InputStreamReader(stream));
+  return base::WrapUnique(new InputStreamReader(stream));
 }
 
 void AndroidStreamReaderURLRequestJob::OnInputStreamOpened(
-      scoped_ptr<Delegate> returned_delegate,
-      scoped_ptr<xwalk::InputStream> input_stream) {
+      std::unique_ptr<Delegate> returned_delegate,
+      std::unique_ptr<xwalk::InputStream> input_stream) {
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(returned_delegate);
   delegate_ = std::move(returned_delegate);
@@ -219,14 +214,12 @@ void AndroidStreamReaderURLRequestJob::OnInputStreamOpened(
     if (restart_required) {
       NotifyRestartRequired();
     } else {
-      // Clear the IO_PENDING status set in Start().
-      SetStatus(net::URLRequestStatus());
       HeadersComplete(kHTTPNotFound, kHTTPNotFoundText);
     }
     return;
   }
 
-  scoped_ptr<InputStreamReader> input_stream_reader(
+  std::unique_ptr<InputStreamReader> input_stream_reader(
       CreateStreamReader(input_stream.get()));
   DCHECK(input_stream_reader);
 
@@ -246,8 +239,6 @@ void AndroidStreamReaderURLRequestJob::OnInputStreamOpened(
 
 void AndroidStreamReaderURLRequestJob::OnReaderSeekCompleted(int result) {
   DCHECK(thread_checker_.CalledOnValidThread());
-  // Clear the IO_PENDING status set in Start().
-  SetStatus(net::URLRequestStatus());
   if (result >= 0) {
     set_expected_content_size(result);
     HeadersComplete(kHTTPOk, kHTTPOkText);
@@ -277,11 +268,9 @@ int AndroidStreamReaderURLRequestJob::ReadRawData(net::IOBuffer* dest,
   }
 
   PostTaskAndReplyWithResult(
-      GetWorkerThreadRunner(),
-      FROM_HERE,
+      GetWorkerThreadRunner(), FROM_HERE,
       base::Bind(&InputStreamReaderWrapper::ReadRawData,
-                 input_stream_reader_wrapper_,
-                 make_scoped_refptr(dest),
+                 input_stream_reader_wrapper_, base::RetainedRef(dest),
                  dest_size),
       base::Bind(&AndroidStreamReaderURLRequestJob::OnReaderReadCompleted,
                  weak_factory_.GetWeakPtr()));

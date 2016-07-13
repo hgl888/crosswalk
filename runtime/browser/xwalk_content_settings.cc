@@ -9,8 +9,8 @@
 #include "base/base_paths.h"
 #include "base/files/file_util.h"
 #include "base/path_service.h"
-#include "base/prefs/pref_filter.h"
-#include "base/prefs/pref_service_factory.h"
+#include "components/prefs/pref_filter.h"
+#include "components/prefs/pref_service_factory.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "content/public/browser/browser_thread.h"
 #include "url/gurl.h"
@@ -43,18 +43,18 @@ void XWalkContentSettings::Init() {
 
   pref_store_ = new JsonPrefStore(GetPrefFilePathFromPath(xwalk_data_dir),
       sequenced_task_runner_.get(),
-      scoped_ptr<PrefFilter>());
+      std::unique_ptr<PrefFilter>());
 
   // The name is misleading, we do not sync anything.
   pref_registry_ = new user_prefs::PrefRegistrySyncable();
-  base::PrefServiceFactory pref_service_factory;
+  PrefServiceFactory pref_service_factory;
   pref_service_factory.set_user_prefs(pref_store_);
 
   pref_service_ = pref_service_factory.Create(pref_registry_.get());
 
   HostContentSettingsMap::RegisterProfilePrefs(pref_registry_.get());
   host_content_settings_map_ =
-      new HostContentSettingsMap(pref_service_.get(), false);
+      new HostContentSettingsMap(pref_service_.get(), false, false);
 }
 
 void XWalkContentSettings::Shutdown() {
@@ -82,7 +82,7 @@ DCHECK_EQ(embedding_origin, embedding_origin.GetOrigin());
 DCHECK(content_setting == CONTENT_SETTING_ALLOW ||
     content_setting == CONTENT_SETTING_BLOCK);
 
-host_content_settings_map_->SetContentSetting(
+host_content_settings_map_->SetContentSettingCustomScope(
     ContentSettingsPattern::FromURLNoWildcard(requesting_origin),
     ContentSettingsPattern::FromURLNoWildcard(embedding_origin),
     type, std::string(), content_setting);

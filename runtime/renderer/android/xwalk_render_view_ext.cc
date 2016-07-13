@@ -8,11 +8,13 @@
 
 #include "base/bind.h"
 #include "base/strings/string_piece.h"
+#include "base/strings/utf_string_conversions.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/renderer/android_content_detection_prefixes.h"
 #include "content/public/renderer/document_state.h"
 #include "content/public/renderer/render_view.h"
 #include "skia/ext/refptr.h"
+#include "third_party/WebKit/public/platform/WebSecurityOrigin.h"
 #include "third_party/WebKit/public/platform/WebSize.h"
 #include "third_party/WebKit/public/platform/WebURL.h"
 #include "third_party/WebKit/public/platform/WebVector.h"
@@ -20,12 +22,15 @@
 #include "third_party/WebKit/public/web/WebDocument.h"
 #include "third_party/WebKit/public/web/WebElement.h"
 #include "third_party/WebKit/public/web/WebElementCollection.h"
+#include "third_party/WebKit/public/web/WebFrameWidget.h"
 #include "third_party/WebKit/public/web/WebHitTestResult.h"
 #include "third_party/WebKit/public/web/WebLocalFrame.h"
 #include "third_party/WebKit/public/web/WebNode.h"
-#include "third_party/WebKit/public/web/WebSecurityOrigin.h"
 #include "third_party/WebKit/public/web/WebView.h"
 #include "third_party/skia/include/core/SkPicture.h"
+#include "url/url_canon.h"
+#include "url/url_constants.h"
+#include "url/url_util.h"
 #include "xwalk/runtime/common/android/xwalk_hit_test_data.h"
 #include "xwalk/runtime/common/android/xwalk_render_view_messages.h"
 
@@ -65,7 +70,11 @@ bool RemovePrefixAndAssignIfMatches(const base::StringPiece& prefix,
   const base::StringPiece spec(url.possibly_invalid_spec());
 
   if (spec.starts_with(prefix)) {
-    dest->assign(spec.begin() + prefix.length(), spec.end());
+    url::RawCanonOutputW<1024> output;
+    url::DecodeURLEscapeSequences(spec.data() + prefix.length(),
+                                  spec.length() - prefix.length(), &output);
+    *dest =
+        base::UTF16ToUTF8(base::StringPiece16(output.data(), output.length()));
     return true;
   }
   return false;
@@ -173,7 +182,7 @@ void XWalkRenderViewExt::DidCommitProvisionalLoad(blink::WebLocalFrame* frame,
   content::DocumentState* document_state =
       content::DocumentState::FromDataSource(frame->dataSource());
   if (document_state->can_load_local_resources()) {
-    blink::WebSecurityOrigin origin = frame->document().securityOrigin();
+    blink::WebSecurityOrigin origin = frame->document().getSecurityOrigin();
     origin.grantLoadLocalResources();
   }
 }
@@ -206,13 +215,15 @@ void XWalkRenderViewExt::FocusedNodeChanged(const blink::WebNode& node) {
   Send(new XWalkViewHostMsg_UpdateHitTestData(routing_id(), data));
 }
 
-void XWalkRenderViewExt::OnDoHitTest(int view_x, int view_y) {
+void XWalkRenderViewExt::OnDoHitTest(const gfx::PointF& touch_center,
+                                     const gfx::SizeF& touch_area) {
   if (!render_view() || !render_view()->GetWebView())
     return;
 
   const blink::WebHitTestResult result =
-      render_view()->GetWebView()->hitTestResultAt(
-          blink::WebPoint(view_x, view_y));
+      render_view()->GetWebView()->hitTestResultForTap(
+          blink::WebPoint(touch_center.x(), touch_center.y()),
+          blink::WebSize(touch_area.width(), touch_area.height()));
   XWalkHitTestData data;
 
   if (!result.urlElement().isNull()) {
@@ -249,9 +260,10 @@ void XWalkRenderViewExt::OnSetInitialPageScale(double page_scale_factor) {
 }
 
 void XWalkRenderViewExt::OnSetBackgroundColor(SkColor c) {
-  if (!render_view() || !render_view()->GetWebView())
+  if (!render_view() || !render_view()->GetWebFrameWidget())
     return;
-  render_view()->GetWebView()->setBaseBackgroundColor(c);
+  blink::WebFrameWidget* web_frame_widget = render_view()->GetWebFrameWidget();
+  web_frame_widget->setBaseBackgroundColor(c);
 }
 
 void XWalkRenderViewExt::OnSetTextZoomFactor(float zoom_factor) {

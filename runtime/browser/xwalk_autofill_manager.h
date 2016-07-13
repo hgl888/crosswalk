@@ -4,8 +4,9 @@
 #ifndef XWALK_RUNTIME_BROWSER_XWALK_AUTOFILL_MANAGER_H_
 #define XWALK_RUNTIME_BROWSER_XWALK_AUTOFILL_MANAGER_H_
 
-#include "base/memory/scoped_ptr.h"
-#include "base/prefs/pref_change_registrar.h"
+#include <memory>
+
+#include "components/prefs/pref_change_registrar.h"
 
 namespace content {
 class WebContents;
