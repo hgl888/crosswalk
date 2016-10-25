@@ -38,7 +38,6 @@ import org.chromium.ui.gfx.DeviceDisplayInfo;
 
 import org.xwalk.core.ClientCertRequest;
 import org.xwalk.core.XWalkDownloadListener;
-import org.xwalk.core.XWalkFindListener;
 import org.xwalk.core.XWalkHttpAuthHandler;
 import org.xwalk.core.XWalkJavascriptResult;
 import org.xwalk.core.XWalkNavigationHistory;
@@ -270,15 +269,6 @@ public class XWalkViewTestBase
         }
     }
 
-    class TestXWalkFindListener extends XWalkFindListener {
-        @Override
-        public void onFindResultReceived(int activeMatchOrdinal, int numberOfMatches,
-                boolean isDoneCounting) {
-            mTestHelperBridge.onFindResultReceived(activeMatchOrdinal, numberOfMatches,
-                    isDoneCounting);
-        }
-    }
-
     void setDownloadListener() {
         final Context context = getActivity();
         getInstrumentation().runOnMainSync(new Runnable() {
@@ -286,15 +276,6 @@ public class XWalkViewTestBase
             public void run() {
                 TestXWalkDownloadListener listener = new TestXWalkDownloadListener(context);
                 getXWalkView().setDownloadListener(listener);
-            }
-        });
-    }
-
-    void setFindListener() {
-        getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                getXWalkView().setFindListener(new TestXWalkFindListener());
             }
         });
     }
@@ -360,7 +341,6 @@ public class XWalkViewTestBase
         CallbackHelper pageFinishedHelper = mTestHelperBridge.getOnPageFinishedHelper();
         int currentCallCount = pageFinishedHelper.getCallCount();
         loadUrlAsync(url);
-
         pageFinishedHelper.waitForCallback(currentCallCount, 1, WAIT_TIMEOUT_SECONDS,
                 TimeUnit.SECONDS);
     }
@@ -382,26 +362,47 @@ public class XWalkViewTestBase
         getInstrumentation().runOnMainSync(new Runnable() {
             @Override
             public void run() {
-                mXWalkView.load(url, null);
+                mXWalkView.loadUrl(url);
             }
         });
     }
 
-    protected void loadDataSync(final String url, final String data, final String mimeType,
+    protected void loadDataSync(final String data, final String mimeType,
             final boolean isBase64Encoded) throws Exception {
         CallbackHelper pageFinishedHelper = mTestHelperBridge.getOnPageFinishedHelper();
         int currentCallCount = pageFinishedHelper.getCallCount();
-        loadDataAsync(url, data, mimeType, isBase64Encoded);
+        loadDataAsync(data, mimeType, isBase64Encoded);
         pageFinishedHelper.waitForCallback(currentCallCount, 1, WAIT_TIMEOUT_SECONDS,
                 TimeUnit.SECONDS);
     }
 
-    protected void loadDataAsync(final String url, final String data, final String mimeType,
+    protected void loadDataAsync(final String data, final String mimeType,
              final boolean isBase64Encoded) throws Exception {
         getInstrumentation().runOnMainSync(new Runnable() {
             @Override
             public void run() {
-                mXWalkView.load(url, data);
+                mXWalkView.loadData(data, mimeType, isBase64Encoded ? "base64" : null);
+            }
+        });
+    }
+
+    protected void loadDataWithBaseUrlSync(final String data, final String mimeType,
+            final boolean isBase64Encoded, final String baseUrl,
+            final String historyUrl) throws Throwable {
+        CallbackHelper pageFinishedHelper = mTestHelperBridge.getOnPageFinishedHelper();
+        int currentCallCount = pageFinishedHelper.getCallCount();
+        loadDataWithBaseUrlAsync(data, mimeType, isBase64Encoded, baseUrl, historyUrl);
+        pageFinishedHelper.waitForCallback(currentCallCount, 1, WAIT_TIMEOUT_SECONDS,
+                TimeUnit.SECONDS);
+    }
+
+    protected void loadDataWithBaseUrlAsync(final String data, final String mimeType,
+            final boolean isBase64Encoded, final String baseUrl, final String historyUrl) throws Throwable {
+        getInstrumentation().runOnMainSync(new Runnable() {
+            @Override
+            public void run() {
+                mXWalkView.loadDataWithBaseURL(
+                        baseUrl, data, mimeType, isBase64Encoded ? "base64" : null, historyUrl);
             }
         });
     }
@@ -412,7 +413,6 @@ public class XWalkViewTestBase
         CallbackHelper pageFinishedHelper = contentsClient.getOnPageFinishedHelper();
         int currentCallCount = pageFinishedHelper.getCallCount();
         loadUrlAsyncByContent(xWalkContent, url);
-
         pageFinishedHelper.waitForCallback(currentCallCount, 1, WAIT_TIMEOUT_SECONDS,
                 TimeUnit.SECONDS);
     }
@@ -425,7 +425,6 @@ public class XWalkViewTestBase
         int onErrorCallCount = onReceivedErrorHelper.getCallCount();
         int onFinishedCallCount = onPageFinishedHelper.getCallCount();
         loadUrlAsyncByContent(xWalkContent, url);
-
         onReceivedErrorHelper.waitForCallback(onErrorCallCount, 1, WAIT_TIMEOUT_MS,
                 TimeUnit.MILLISECONDS);
         onPageFinishedHelper.waitForCallback(onFinishedCallCount, 1, WAIT_TIMEOUT_MS,
@@ -437,7 +436,7 @@ public class XWalkViewTestBase
         getInstrumentation().runOnMainSync(new Runnable() {
             @Override
             public void run() {
-                xWalkContent.load(url, null);
+                xWalkContent.loadUrl(url);
             }
         });
     }
@@ -515,16 +514,14 @@ public class XWalkViewTestBase
 
     protected void loadAssetFile(String fileName) throws Exception {
         String fileContent = getFileContent(fileName);
-        loadDataSync(fileName, fileContent, "text/html", false);
+        loadDataSync(fileContent, "text/html", false);
     }
 
     public void loadAssetFileAndWaitForTitle(String fileName) throws Exception {
         CallbackHelper getTitleHelper = mTestHelperBridge.getOnTitleUpdatedHelper();
         int currentCallCount = getTitleHelper.getCallCount();
         String fileContent = getFileContent(fileName);
-
-        loadDataAsync(fileName, fileContent, "text/html", false);
-
+        loadDataAsync(fileContent, "text/html", false);
         getTitleHelper.waitForCallback(currentCallCount, 1, WAIT_TIMEOUT_SECONDS,
                 TimeUnit.SECONDS);
     }
@@ -769,7 +766,6 @@ public class XWalkViewTestBase
             str = "document.getElementById('" + id + "')";
         }
         final String script1 = str + " != null";
-        final String script2 = str + ".dispatchEvent(evObj);";
         CriteriaHelper.pollInstrumentationThread(new Criteria() {
             @Override
             public boolean isSatisfied() {
@@ -785,10 +781,10 @@ public class XWalkViewTestBase
         }, WAIT_TIMEOUT_MS, CHECK_INTERVAL);
 
         try {
-            loadJavaScriptUrl("javascript:var evObj = document.createEvent('Events'); " +
-                "evObj.initEvent('click', true, false); " +
-                script2 +
-                "console.log('element with id [" + id + "] clicked');");
+            loadJavaScriptUrl(
+                "javascript:var evObj = new MouseEvent('click', {bubbles: true}); "
+                        + "document.getElementById('" + id + "').dispatchEvent(evObj);"
+                        + "console.log('element with id [" + id + "] clicked');");
         } catch (Throwable t) {
             t.printStackTrace();
         }
@@ -1110,7 +1106,7 @@ public class XWalkViewTestBase
         getInstrumentation().runOnMainSync(new Runnable() {
             @Override
             public void run() {
-                view.load(null, data);
+                view.loadData(data, "text/html", null);
             }
         });
     }
@@ -1565,24 +1561,6 @@ public class XWalkViewTestBase
             @Override
             public SslCertificate call() throws Exception {
                 return mXWalkView.getCertificate();
-            }
-        });
-    }
-
-    protected void findAllAsync(final String text) {
-        getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                mXWalkView.findAllAsync(text);
-            }
-        });
-    }
-
-    protected void findNext(final boolean forward) {
-        getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                mXWalkView.findNext(forward);
             }
         });
     }
